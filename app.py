@@ -14,7 +14,6 @@ from sklearn.metrics import (
 
 st.title("ML Model Evaluator")
 
-# ---------------- Upload Dataset ----------------
 uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
 
 if uploaded_file is not None:
@@ -30,32 +29,39 @@ if uploaded_file is not None:
         ["Classification", "Regression"]
     )
 
-    # ---------------- Target ----------------
-    target_col = st.selectbox("Select Target Column", df.columns)
+    # ==================================================
+    # TARGET SELECTION LOGIC
+    # ==================================================
+
+    if problem_type == "Regression":
+
+        # Auto select Id if exists
+        if "Id" in df.columns:
+            target_col = "Id"
+            st.write("Target Column (Auto Selected): **Id**")
+        else:
+            target_col = st.selectbox("Select Target Column", df.columns)
+
+    else:
+        target_col = st.selectbox("Select Target Column", df.columns)
 
     # ---------------- Feature Selection ----------------
-    # Remove target + ID column automatically
-    available_features = [
-        c for c in df.columns
-        if c != target_col and c.lower() != "id"
-    ]
-
     feature_cols = st.multiselect(
         "Select Feature Columns",
-        available_features
+        [c for c in df.columns if c != target_col]
     )
 
-    # ---------------- Train / Test Split ----------------
+    # ---------------- Train/Test Split ----------------
     train_percent = st.slider("Train Percentage (%)", 50, 90, 80)
     test_percent = 100 - train_percent
 
     st.write(f"Train: {train_percent}% | Test: {test_percent}%")
 
-    # ---------------- Evaluate Button ----------------
+    # ---------------- Evaluate ----------------
     if st.button("Evaluate Model"):
 
         if len(feature_cols) == 0:
-            st.error("Please select at least one feature")
+            st.error("Select at least one feature")
             st.stop()
 
         X = df[feature_cols]
@@ -75,7 +81,8 @@ if uploaded_file is not None:
             X,
             y,
             test_size=test_percent / 100,
-            random_state=42
+            random_state=42,
+            stratify=y if problem_type == "Classification" else None
         )
 
         # ==================================================
@@ -99,7 +106,6 @@ if uploaded_file is not None:
             st.write("Test Accuracy:",
                      round(accuracy_score(y_test, test_pred), 4))
 
-            # SMALL NORMAL CONFUSION MATRIX
             st.subheader("Train Confusion Matrix")
             st.write(pd.DataFrame(
                 confusion_matrix(y_train, train_pred)
