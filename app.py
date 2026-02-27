@@ -41,21 +41,21 @@ if uploaded_file is not None:
     st.subheader("Statistical Summary")
     st.write(df.describe())
 
-    # Correlation (numeric only)
-    st.subheader("Correlation Matrix (Numeric Features)")
+    st.subheader("Correlation Matrix")
     st.write(df.select_dtypes(include=["number"]).corr())
 
-    # Simple chart
-    st.subheader("Feature Distribution")
     numeric_cols = df.select_dtypes(include=["number"]).columns
 
     if len(numeric_cols) > 0:
-        selected_col = st.selectbox("Select Numeric Column for Histogram", numeric_cols)
+        st.subheader("Histogram")
+        selected_col = st.selectbox(
+            "Select Numeric Column",
+            numeric_cols
+        )
 
         fig, ax = plt.subplots()
         ax.hist(df[selected_col].dropna())
         ax.set_title(f"Histogram of {selected_col}")
-
         st.pyplot(fig)
 
     # ==================================================
@@ -68,26 +68,40 @@ if uploaded_file is not None:
         ["Classification", "Regression"]
     )
 
-    # Auto target for regression
-    if problem_type == "Regression":
+    # ==================================================
+    # AUTO TARGET SELECTION
+    # ==================================================
+    if problem_type == "Classification":
+
+        if "Species" in df.columns:
+            target_col = "Species"
+            st.write("Target Column (Auto Selected): **Species**")
+        else:
+            st.error("Species column not found")
+            st.stop()
+
+    else:
+
         if "Id" in df.columns:
             target_col = "Id"
             st.write("Target Column (Auto Selected): **Id**")
         else:
-            target_col = st.selectbox("Select Target Column", df.columns)
-    else:
-        target_col = st.selectbox("Select Target Column", df.columns)
+            st.error("Id column not found")
+            st.stop()
 
+    # ---------------- Features ----------------
     feature_cols = st.multiselect(
         "Select Feature Columns",
         [c for c in df.columns if c != target_col]
     )
 
+    # ---------------- Train/Test ----------------
     train_percent = st.slider("Train Percentage (%)", 50, 90, 80)
     test_percent = 100 - train_percent
 
     st.write(f"Train: {train_percent}% | Test: {test_percent}%")
 
+    # ---------------- Evaluate ----------------
     if st.button("Evaluate Model"):
 
         if len(feature_cols) == 0:
@@ -132,10 +146,14 @@ if uploaded_file is not None:
                      round(accuracy_score(y_test, test_pred), 4))
 
             st.subheader("Train Confusion Matrix")
-            st.write(pd.DataFrame(confusion_matrix(y_train, train_pred)))
+            st.write(pd.DataFrame(
+                confusion_matrix(y_train, train_pred)
+            ))
 
             st.subheader("Test Confusion Matrix")
-            st.write(pd.DataFrame(confusion_matrix(y_test, test_pred)))
+            st.write(pd.DataFrame(
+                confusion_matrix(y_test, test_pred)
+            ))
 
         # ================= REGRESSION =================
         else:
@@ -148,8 +166,10 @@ if uploaded_file is not None:
 
             st.success("Regression Model Evaluated")
 
-            st.write("Train R²:", round(r2_score(y_train, train_pred), 4))
-            st.write("Test R²:", round(r2_score(y_test, test_pred), 4))
+            st.write("Train R²:",
+                     round(r2_score(y_train, train_pred), 4))
+            st.write("Test R²:",
+                     round(r2_score(y_test, test_pred), 4))
 
             st.write("Train MSE:",
                      round(mean_squared_error(y_train, train_pred), 4))
