@@ -6,7 +6,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 
 st.title("Naive Bayes Classifier")
 
-# Upload dataset
+# Upload CSV
 uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
 
 if uploaded_file is not None:
@@ -16,49 +16,66 @@ if uploaded_file is not None:
     st.subheader("Dataset Preview")
     st.dataframe(df.head())
 
-    # Target selection
+    # Select target
     target_col = st.selectbox("Select Target Column", df.columns)
 
-    # Feature selection
+    # Select features
     feature_cols = st.multiselect(
         "Select Feature Columns",
-        [col for col in df.columns if col != target_col]
+        [c for c in df.columns if c != target_col]
     )
 
-    # Train-test split
-    split = st.slider("Train-Test Split (%)", 50, 90, 80)
+    # Train test split
+    split = st.slider("Train Size (%)", 50, 90, 80)
 
     if st.button("Evaluate Model"):
 
         if len(feature_cols) == 0:
-            st.error("Please select at least one feature.")
-        else:
+            st.error("Select at least one feature")
+            st.stop()
 
-            X = df[feature_cols]
-            y = df[target_col]
+        # Prepare data
+        X = df[feature_cols]
+        y = df[target_col]
 
-            # Handle categorical features
-            X = pd.get_dummies(X)
+        # Remove missing values
+        data = pd.concat([X, y], axis=1).dropna()
 
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
-                test_size=(100-split)/100,
-                random_state=42
-            )
+        X = data[feature_cols]
+        y = data[target_col].astype(str)
 
-            model = GaussianNB()
-            model.fit(X_train, y_train)
+        # Check classification type
+        if y.nunique() < 2:
+            st.error("Target must have at least 2 classes")
+            st.stop()
 
-            train_pred = model.predict(X_train)
-            test_pred = model.predict(X_test)
+        # Convert categorical features
+        X = pd.get_dummies(X)
 
-            st.success("Model Evaluated Successfully")
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=(100 - split) / 100,
+            random_state=42
+        )
 
-            st.write("### Train Accuracy:", accuracy_score(y_train, train_pred))
-            st.write("### Test Accuracy:", accuracy_score(y_test, test_pred))
+        # Model
+        model = GaussianNB()
+        model.fit(X_train, y_train)
 
-            st.subheader("Train Confusion Matrix")
-            st.write(confusion_matrix(y_train, train_pred))
+        # Predictions
+        train_pred = model.predict(X_train)
+        test_pred = model.predict(X_test)
 
-            st.subheader("Test Confusion Matrix")
-            st.write(confusion_matrix(y_test, test_pred))
+        # Results
+        st.success("Model Evaluated")
+
+        st.write("Train Accuracy:", accuracy_score(y_train, train_pred))
+        st.write("Test Accuracy:", accuracy_score(y_test, test_pred))
+
+        st.subheader("Train Confusion Matrix")
+        st.write(confusion_matrix(y_train, train_pred))
+
+        st.subheader("Test Confusion Matrix")
+        st.write(confusion_matrix(y_test, test_pred))
