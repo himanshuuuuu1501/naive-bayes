@@ -1,12 +1,18 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.linear_model import LinearRegression
 
-st.title("Naive Bayes Classifier")
+from sklearn.metrics import (
+    confusion_matrix,
+    accuracy_score,
+    mean_squared_error,
+    r2_score
+)
+
+st.title("ML Model Evaluator")
 
 # ---------------- Upload Dataset ----------------
 uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
@@ -18,26 +24,34 @@ if uploaded_file is not None:
     st.subheader("Dataset Preview")
     st.dataframe(df.head())
 
-    # ---------------- Target Column ----------------
+    # ---------------- Problem Type ----------------
+    problem_type = st.radio(
+        "Select Problem Type",
+        ["Classification", "Regression"]
+    )
+
+    # ---------------- Target ----------------
     target_col = st.selectbox("Select Target Column", df.columns)
 
-    # ---------------- Feature Selection ----------------
+    # ---------------- Features ----------------
     feature_cols = st.multiselect(
         "Select Feature Columns",
         [c for c in df.columns if c != target_col]
     )
 
-    # ---------------- Train-Test Split ----------------
-    split = st.slider("Train Size (%)", 50, 90, 80)
+    # ---------------- Train / Test Split ----------------
+    train_percent = st.slider("Train Percentage (%)", 50, 90, 80)
+    test_percent = 100 - train_percent
+
+    st.write(f"Train: {train_percent}%   |   Test: {test_percent}%")
 
     # ---------------- Evaluate Button ----------------
     if st.button("Evaluate Model"):
 
         if len(feature_cols) == 0:
-            st.error("Please select at least one feature")
+            st.error("Select at least one feature")
             st.stop()
 
-        # Prepare data
         X = df[feature_cols]
         y = df[target_col]
 
@@ -45,60 +59,66 @@ if uploaded_file is not None:
         data = pd.concat([X, y], axis=1).dropna()
 
         X = data[feature_cols]
-        y = data[target_col].astype(str)
-
-        # Check target validity
-        if y.nunique() < 2:
-            st.error("Target must have at least 2 classes")
-            st.stop()
+        y = data[target_col]
 
         # Convert categorical features
         X = pd.get_dummies(X)
 
-        # Train-test split
+        # Split data
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
-            test_size=(100 - split) / 100,
+            test_size=test_percent / 100,
             random_state=42
         )
 
-        # Model
-        model = GaussianNB()
-        model.fit(X_train, y_train)
+        # ==================================================
+        # CLASSIFICATION
+        # ==================================================
+        if problem_type == "Classification":
 
-        # Predictions
-        train_pred = model.predict(X_train)
-        test_pred = model.predict(X_test)
+            y_train = y_train.astype(str)
+            y_test = y_test.astype(str)
 
-        # ---------------- Results ----------------
-        st.success("Model Evaluated Successfully")
+            model = GaussianNB()
+            model.fit(X_train, y_train)
 
-        st.write("### Train Accuracy:", round(accuracy_score(y_train, train_pred), 4))
-        st.write("### Test Accuracy:", round(accuracy_score(y_test, test_pred), 4))
+            train_pred = model.predict(X_train)
+            test_pred = model.predict(X_test)
 
-        # ---------------- Train Confusion Matrix ----------------
-        st.subheader("Train Confusion Matrix")
+            st.success("Classification Model Evaluated")
 
-        cm_train = confusion_matrix(y_train, train_pred)
+            st.write("Train Accuracy:",
+                     round(accuracy_score(y_train, train_pred), 4))
+            st.write("Test Accuracy:",
+                     round(accuracy_score(y_test, test_pred), 4))
 
-        fig1, ax1 = plt.subplots()
-        ax1.imshow(cm_train)
-        ax1.set_title("Train Confusion Matrix")
-        ax1.set_xlabel("Predicted")
-        ax1.set_ylabel("Actual")
+            # Confusion matrices (normal matrix)
+            st.subheader("Train Confusion Matrix")
+            st.write(pd.DataFrame(confusion_matrix(y_train, train_pred)))
 
-        st.pyplot(fig1)
+            st.subheader("Test Confusion Matrix")
+            st.write(pd.DataFrame(confusion_matrix(y_test, test_pred)))
 
-        # ---------------- Test Confusion Matrix ----------------
-        st.subheader("Test Confusion Matrix")
+        # ==================================================
+        # REGRESSION
+        # ==================================================
+        else:
 
-        cm_test = confusion_matrix(y_test, test_pred)
+            model = LinearRegression()
+            model.fit(X_train, y_train)
 
-        fig2, ax2 = plt.subplots()
-        ax2.imshow(cm_test)
-        ax2.set_title("Test Confusion Matrix")
-        ax2.set_xlabel("Predicted")
-        ax2.set_ylabel("Actual")
+            train_pred = model.predict(X_train)
+            test_pred = model.predict(X_test)
 
-        st.pyplot(fig2)
+            st.success("Regression Model Evaluated")
+
+            st.write("Train R² Score:",
+                     round(r2_score(y_train, train_pred), 4))
+            st.write("Test R² Score:",
+                     round(r2_score(y_test, test_pred), 4))
+
+            st.write("Train MSE:",
+                     round(mean_squared_error(y_train, train_pred), 4))
+            st.write("Test MSE:",
+                     round(mean_squared_error(y_test, test_pred), 4))
