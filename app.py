@@ -33,23 +33,29 @@ if uploaded_file is not None:
     # ---------------- Target ----------------
     target_col = st.selectbox("Select Target Column", df.columns)
 
-    # ---------------- Features ----------------
+    # ---------------- Feature Selection ----------------
+    # Remove target + ID column automatically
+    available_features = [
+        c for c in df.columns
+        if c != target_col and c.lower() != "id"
+    ]
+
     feature_cols = st.multiselect(
         "Select Feature Columns",
-        [c for c in df.columns if c != target_col]
+        available_features
     )
 
     # ---------------- Train / Test Split ----------------
     train_percent = st.slider("Train Percentage (%)", 50, 90, 80)
     test_percent = 100 - train_percent
 
-    st.write(f"Train: {train_percent}%   |   Test: {test_percent}%")
+    st.write(f"Train: {train_percent}% | Test: {test_percent}%")
 
     # ---------------- Evaluate Button ----------------
     if st.button("Evaluate Model"):
 
         if len(feature_cols) == 0:
-            st.error("Select at least one feature")
+            st.error("Please select at least one feature")
             st.stop()
 
         X = df[feature_cols]
@@ -93,12 +99,16 @@ if uploaded_file is not None:
             st.write("Test Accuracy:",
                      round(accuracy_score(y_test, test_pred), 4))
 
-            # Confusion matrices (normal matrix)
+            # SMALL NORMAL CONFUSION MATRIX
             st.subheader("Train Confusion Matrix")
-            st.write(pd.DataFrame(confusion_matrix(y_train, train_pred)))
+            st.write(pd.DataFrame(
+                confusion_matrix(y_train, train_pred)
+            ))
 
             st.subheader("Test Confusion Matrix")
-            st.write(pd.DataFrame(confusion_matrix(y_test, test_pred)))
+            st.write(pd.DataFrame(
+                confusion_matrix(y_test, test_pred)
+            ))
 
         # ==================================================
         # REGRESSION
